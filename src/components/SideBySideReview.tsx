@@ -10,7 +10,7 @@ export function DocumentPreview({ src, alt, type = 'image', onReload }: {
   if (failed)
     return (
       <div className="grid min-h-64 place-items-center gap-3 border border-dashed border-line p-6 text-center">
-        <p className="text-ink/70">Dokumen tidak bisa dimuat. Tautan mungkin sudah kedaluwarsa.</p>
+        <p className="text-muted">Dokumen tidak bisa dimuat. Tautan mungkin sudah kedaluwarsa.</p>
         <button className={btnGhost} onClick={() => { setFailed(false); onReload?.(); }}>Muat ulang dokumen</button>
       </div>
     );
@@ -27,13 +27,13 @@ export function ReviewField({ label, hint, flagged, children }: {
   label: string; hint?: string; flagged?: boolean; children: ReactNode;
 }) {
   return (
-    <label className={`block rounded-sm p-3 ${flagged ? 'bg-signal/15 ring-1 ring-signal' : ''}`}>
+    <label className={`block rounded-md p-3 ${flagged ? 'bg-signal/15 ring-1 ring-signal/60' : ''}`}>
       <span className="text-sm font-semibold">
         {label}
-        {flagged && <span className="ml-2 font-normal text-ink/70">perlu dicek</span>}
+        {flagged && <span className="ml-2 font-normal text-muted">perlu dicek</span>}
       </span>
       {children}
-      {hint && <span className="mt-1 block text-sm text-ink/60">{hint}</span>}
+      {hint && <span className="mt-1 block text-sm text-muted">{hint}</span>}
     </label>
   );
 }
@@ -58,7 +58,7 @@ export default function SideBySideReview({ left, right, approveLabel, onApprove,
         {right}
         <label className="block p-3 text-sm font-semibold">
           Alasan penolakan (opsional)
-          <input value={reason} onChange={(e) => setReason(e.target.value)} className="mt-1 w-full rounded-sm border border-line px-3 py-2 font-normal" />
+          <input value={reason} onChange={(e) => setReason(e.target.value)} className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2.5 font-normal focus-visible:border-brand focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/20" />
         </label>
         <div className="flex gap-2 p-3">
           <button disabled={busy} onClick={() => run(onApprove)} className={btnPrimary}>{approveLabel}</button>
