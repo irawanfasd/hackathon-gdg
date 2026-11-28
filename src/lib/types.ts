@@ -48,4 +48,5 @@ export type Team = {
   skills: string[];
   members: TeamMember[];
   capacity: number;
+  slots_remaining?: number; // dihitung server: capacity - jumlah anggota
 };
