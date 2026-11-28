@@ -16,7 +16,8 @@ export async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
     let msg = `Request failed (${res.status})`;
     try {
       const body = await res.json();
-      if (body?.message) msg = body.message;
+      const m = body?.message ?? body?.error;
+      if (typeof m === "string") msg = m;
     } catch {
       // ignore json parse errors
     }
