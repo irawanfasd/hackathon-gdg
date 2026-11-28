@@ -1,20 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { getAuthenticatedUser } from '@/lib/auth-server';
+import { fail, readJson, isUuid } from '@/lib/http';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  if (!isUuid(params.id)) return fail('Competition not found', 404);
+
   const { data, error } = await supabaseAdmin
     .from('competitions')
     .select('*')
     .eq('id', params.id)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
-    return NextResponse.json({ message: 'Competition not found' }, { status: 404 });
+  if (error) return fail(error.message, 500);
+
+  // Lomba PENDING/REJECTED tidak boleh terlihat publik; admin tetap boleh (untuk moderasi).
+  if (data && data.status !== 'APPROVED') {
+    const viewer = await getAuthenticatedUser();
+    if (viewer?.role !== 'admin') return fail('Competition not found', 404);
   }
+  if (!data) return fail('Competition not found', 404);
 
   return NextResponse.json({
     competition: {
@@ -33,11 +41,11 @@ export async function PATCH(
     return NextResponse.json({ message: 'Forbidden: Admin only' }, { status: 403 });
   }
 
-  const body = await request.json();
-  const { status } = body;
+  const body = await readJson(request);
+  const status = body?.status;
 
   if (!['APPROVED', 'REJECTED'].includes(status)) {
-    return NextResponse.json({ message: 'Invalid status' }, { status: 400 });
+    return fail('Invalid status', 400);
   }
 
   const { data, error } = await supabaseAdmin
@@ -49,11 +57,10 @@ export async function PATCH(
     })
     .eq('id', params.id)
     .select()
-    .single();
+    .maybeSingle();
 
-  if (error) {
-    return NextResponse.json({ message: error.message }, { status: 500 });
-  }
+  if (error) return fail(error.message, 500);
+  if (!data) return fail('Competition not found', 404);
 
   return NextResponse.json({ competition: data });
 }

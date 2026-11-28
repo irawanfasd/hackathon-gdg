@@ -1,26 +1,47 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import CompetitionCard from '@/components/CompetitionCard';
-import { FIELDS, getCompetitions } from '@/lib/mock';
+import { apiFetch } from '@/lib/api';
+import type { Competition } from '@/lib/types';
 import { btnPrimary } from '@/components/ui';
+
+const FIELDS = ['Semua', 'IT', 'Design', 'Essay', 'Business'] as const;
 
 export default function CatalogView() {
   const [field, setField] = useState<string>('Semua');
   const [q, setQ] = useState('');
+  const [items, setItems] = useState<Competition[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    setLoading(true);
+    setError(null);
+    const qs = field === 'Semua' ? '' : `?field=${encodeURIComponent(field)}`;
+    apiFetch<{ competitions: Competition[] }>(`/api/competitions${qs}`, { signal: ctrl.signal })
+      .then((r) => setItems(r.competitions))
+      .catch((e) => {
+        if (e?.name !== 'AbortError') setError(e?.message ?? 'Gagal memuat lomba.');
+      })
+      .finally(() => {
+        if (!ctrl.signal.aborted) setLoading(false);
+      });
+    return () => ctrl.abort();
+  }, [field]);
 
   const list = useMemo(() => {
     const now = Date.now();
     const t = (s: string) => new Date(s).getTime();
     const needle = q.trim().toLowerCase();
-    return getCompetitions()
-      .filter((c) => field === 'Semua' || c.field === field)
+    return items
       .filter((c) => !needle || `${c.title} ${c.organizer} ${c.field}`.toLowerCase().includes(needle))
       .sort((a, b) => {
         const aClosed = t(a.deadline) < now;
         const bClosed = t(b.deadline) < now;
         return aClosed === bClosed ? t(a.deadline) - t(b.deadline) : aClosed ? 1 : -1;
       });
-  }, [field, q]);
+  }, [items, q]);
 
   const reset = () => {
     setField('Semua');
@@ -69,11 +90,19 @@ export default function CatalogView() {
       </div>
 
       <p className="mt-6 text-sm text-muted" aria-live="polite">
-        {list.length} lomba ditemukan
+        {loading ? 'Memuat lomba…' : error ? '' : `${list.length} lomba ditemukan`}
       </p>
 
       <div className="mt-6 border-t border-line pt-8">
-        {list.length === 0 ? (
+        {error ? (
+          <div role="alert" className="mx-auto max-w-md py-12 text-center">
+            <h2 className="font-display text-2xl font-bold text-ink">Lomba belum bisa dimuat.</h2>
+            <p className="mt-3 text-muted">{error}</p>
+            <button type="button" onClick={() => window.location.reload()} className={`${btnPrimary} mt-6 px-8`}>
+              Coba lagi
+            </button>
+          </div>
+        ) : loading ? null : list.length === 0 ? (
           <div className="mx-auto max-w-md py-12 text-center">
             <p className="font-display text-6xl font-bold text-ink" aria-hidden="true">0</p>
             <h2 className="mt-4 font-display text-2xl font-bold leading-tight text-ink md:text-3xl">

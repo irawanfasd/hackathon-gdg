@@ -1,19 +1,62 @@
+'use client';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import PosterArt from '@/components/PosterArt';
 import SiteFooter from '@/components/SiteFooter';
 import TeamCard from '@/components/TeamCard';
 import { countdown, formatDeadline, levelLabel, teamSize } from '@/lib/format';
-import { getCompetitions, teams } from '@/lib/mock';
+import { ApiError, apiFetch } from '@/lib/api';
+import type { Competition, Team } from '@/lib/types';
 
-export const dynamic = 'force-dynamic';
+function Notice({ title, text }: { title: string; text: string }) {
+  return (
+    <main id="konten" className="mx-auto w-full max-w-page flex-1 px-5 py-16 text-center md:px-10">
+      <h1 className="font-display text-3xl font-bold text-ink">{title}</h1>
+      <p className="mt-3 text-muted">{text}</p>
+      <Link href="/" className="mt-6 inline-block font-semibold text-brand hover:underline">
+        Kembali ke semua lomba
+      </Link>
+    </main>
+  );
+}
 
 export default function CompetitionDetail({ params }: { params: { id: string } }) {
-  const item = getCompetitions().find((c) => c.id === params.id);
-  if (!item) return notFound();
+  const [item, setItem] = useState<Competition | null>(null);
+  const [list, setList] = useState<Team[]>([]);
+  const [state, setState] = useState<'loading' | 'ok' | 'notfound' | 'error'>('loading');
+  const [errMsg, setErrMsg] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    setState('loading');
+    Promise.all([
+      apiFetch<{ competition: Competition }>(`/api/competitions/${params.id}`),
+      apiFetch<{ teams: Team[] }>(`/api/competitions/${params.id}/teams`),
+    ])
+      .then(([c, t]) => {
+        if (cancelled) return;
+        setItem(c.competition);
+        setList(t.teams);
+        setState('ok');
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        if (e instanceof ApiError && e.status === 404) setState('notfound');
+        else {
+          setErrMsg(e?.message ?? 'Terjadi kesalahan.');
+          setState('error');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
+
+  if (state === 'loading') return <Notice title="Memuat…" text="Sebentar, data lomba sedang diambil." />;
+  if (state === 'notfound' || !item) return <Notice title="Lomba tidak ditemukan" text="Lomba ini tidak ada atau belum disetujui." />;
+  if (state === 'error') return <Notice title="Gagal memuat" text={errMsg} />;
 
   const closed = countdown(item.deadline).closed;
-  const list = teams.filter((t) => t.competition_id === item.id);
   const forming = list.filter((t) => t.status === 'FORMING').length;
   const meta = [teamSize(item), levelLabel(item.level)].filter(Boolean).join(' · ');
 
